@@ -1,0 +1,134 @@
+# Go HTTP Server Makefile
+
+BINARY_NAME=httpd
+MAIN_FILE=main.go
+BUILD_DIR=build
+DOCKER_IMAGE=simplehttp
+
+.PHONY: all
+all: build
+
+.PHONY: build
+build:
+	go build -o $(BINARY_NAME) $(MAIN_FILE)
+
+.PHONY: build-prod
+build-prod:
+	CGO_ENABLED=0 go build -ldflags="-w -s" -o $(BINARY_NAME) $(MAIN_FILE)
+
+.PHONY: build-linux
+build-linux:
+	GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_FILE)
+
+.PHONY: build-windows
+build-windows:
+	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_FILE)
+
+.PHONY: build-mac
+build-mac:
+	GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_FILE)
+
+.PHONY: build-all
+build-all: clean-build
+	mkdir -p $(BUILD_DIR)
+	$(MAKE) build-linux
+	$(MAKE) build-windows
+	$(MAKE) build-mac
+	cp $(MAIN_FILE) $(BUILD_DIR)/
+
+.PHONY: run
+run:
+	go run $(MAIN_FILE)
+
+.PHONY: run-port
+run-port:
+	go run $(MAIN_FILE) -p 3000
+
+.PHONY: setup
+setup:
+	go run $(MAIN_FILE) --setup
+
+.PHONY: clean
+clean:
+	rm -f $(BINARY_NAME)
+	rm -rf www/
+
+.PHONY: clean-build
+clean-build:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: test
+test:
+	go test -v ./...
+
+.PHONY: fmt
+fmt:
+	go fmt ./...
+
+.PHONY: vet
+vet:
+	go vet ./...
+
+.PHONY: lint
+lint:
+	golangci-lint run
+
+.PHONY: deps
+deps:
+	go mod download
+	go mod verify
+
+.PHONY: update-deps
+update-deps:
+	go get -u ./...
+	go mod tidy
+
+.PHONY: install
+install: build-prod
+	sudo cp $(BINARY_NAME) /usr/local/bin/
+	sudo chmod +x /usr/local/bin/$(BINARY_NAME)
+
+.PHONY: uninstall
+uninstall:
+	sudo rm -f /usr/local/bin/$(BINARY_NAME)
+
+.PHONY: docker-build
+docker-build:
+	docker build -t $(DOCKER_IMAGE) .
+
+.PHONY: docker-run
+docker-run:
+	docker run -p 8080:8080 $(DOCKER_IMAGE)
+
+.PHONY: dev
+dev:
+	which air > /dev/null || go install github.com/cosmtrek/air@latest
+	air
+
+.PHONY: bench
+bench:
+	go run $(MAIN_FILE) &
+	sleep 2
+	ab -n 1000 -c 10 http://localhost:8080/
+	pkill -f "go run $(MAIN_FILE)"
+
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  build         - Build the server"
+	@echo "  build-prod    - Build optimized binary"
+	@echo "  build-all     - Cross-compile for all platforms"
+	@echo "  run           - Run the server"
+	@echo "  run-port      - Run server on port 3000"
+	@echo "  setup         - Create sample website"
+	@echo "  test          - Run tests"
+	@echo "  fmt           - Format code"
+	@echo "  vet           - Vet code"
+	@echo "  lint          - Run linter"
+	@echo "  deps          - Install dependencies"
+	@echo "  clean         - Clean build files"
+	@echo "  install       - Install to system"
+	@echo "  docker-build  - Build Docker image"
+	@echo "  docker-run    - Run in Docker"
+	@echo "  dev           - Development mode with auto-reload"
+	@echo "  help          - Show this help"

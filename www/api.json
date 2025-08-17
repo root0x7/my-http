@@ -1,0 +1,11 @@
+{
+    "server": "SimpleHTTP/1.0",
+    "status": "running",
+    "message": "API endpoint is working!",
+    "timestamp": "2025-08-17T09:53:49+05:00",
+    "endpoints": [
+        "/",
+        "/test.html",
+        "/api.json"
+    ]
+}
